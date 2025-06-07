@@ -4,6 +4,9 @@ Configuration file for the AI-Powered Web Scraping Agent
 """
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # AI Agent Configuration
 AI_CONFIG = {

@@ -5,8 +5,12 @@ Main entry point for the AI-Powered Agentic Web Scraping Framework
 import asyncio
 import logging
 import os
+from dotenv import load_dotenv
 from agent_coordinator import AgenticWebScrapingCoordinator
 from config import DEFAULT_CONFIG, AI_CONFIG
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(
@@ -21,6 +25,7 @@ async def main():
 
     # Check for OpenAI API key
     api_key = os.getenv("OPENAI_API_KEY")
+    logger.info(api_key)
     if not api_key:
         logger.warning("OPENAI_API_KEY not found. AI features will be disabled.")
         logger.warning("To enable AI features, add your OpenAI API key to the Secrets tab.")
@@ -30,8 +35,7 @@ async def main():
 
     # Example URLs to scrape
     test_urls = [
-        "https://example.com",
-        "https://httpbin.org/html"
+        "https://medium.com/age-of-awareness/they-know-a-collapse-is-coming-39a53e2ecd80"
     ]
 
     logger.info(f"Processing {len(test_urls)} URLs with AI analysis")
