@@ -1,285 +1,98 @@
-import requests
-from bs4 import BeautifulSoup
-import json
-import re
-from urllib.parse import urljoin, urlparse
-from typing import Dict, List, Any
-import time
+"""
+Main entry point for the AI-Powered Agentic Web Scraping Framework
+"""
+
+import asyncio
 import logging
+import os
+from agent_coordinator import AgenticWebScrapingCoordinator
+from config import DEFAULT_CONFIG, AI_CONFIG
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
+async def main():
+    """Main execution function"""
+    logger.info("Starting AI-Powered Agentic Web Scraping Framework")
 
-class WebScrapingAgent:
+    # Check for OpenAI API key
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        logger.warning("OPENAI_API_KEY not found. AI features will be disabled.")
+        logger.warning("To enable AI features, add your OpenAI API key to the Secrets tab.")
 
-    def __init__(self, delay: float = 1.0):
-        """
-        Initialize the web scraping agent
-        
-        Args:
-            delay: Delay between requests to be respectful to servers
-        """
-        self.delay = delay
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        })
+    # Initialize the coordinator
+    coordinator = AgenticWebScrapingCoordinator()
 
-    def scrape_website(self, url: str) -> Dict[str, Any]:
-        """
-        Scrape a website and extract all content in structured format
-        
-        Args:
-            url: The URL to scrape
-            
-        Returns:
-            Dictionary containing structured data
-        """
-        logger.info(f"Starting to scrape: {url}")
+    # Example URLs to scrape
+    test_urls = [
+        "https://example.com",
+        "https://httpbin.org/html"
+    ]
 
-        try:
-            response = self.session.get(url, timeout=10)
-            response.raise_for_status()
+    logger.info(f"Processing {len(test_urls)} URLs with AI analysis")
 
-            soup = BeautifulSoup(response.content, 'html.parser')
+    # Process URLs with AI analysis
+    results = await coordinator.process_multiple_urls(
+        urls=test_urls,
+        enable_ai=bool(api_key),  # Enable AI only if API key is available
+        save_results=True
+    )
 
-            # Extract structured data
-            scraped_data = {
-                "url": url,
-                "title": self._extract_title(soup),
-                "metadata": self._extract_metadata(soup),
-                "text_content": self._extract_text_content(soup),
-                "images": self._extract_images(soup, url),
-                "videos": self._extract_videos(soup, url),
-                "links": self._extract_links(soup, url),
-                "scraped_at": time.strftime("%Y-%m-%d %H:%M:%S")
-            }
+    # Display results summary
+    print("\n" + "="*80)
+    print("AGENTIC WEB SCRAPING RESULTS SUMMARY")
+    print("="*80)
 
-            logger.info(f"Successfully scraped {url}")
-            return scraped_data
+    batch_summary = results["batch_summary"]
+    print(f"Total URLs processed: {results['processed_count']}")
+    print(f"Successful extractions: {results['success_count']}")
+    print(f"Total images found: {batch_summary['total_images_found']}")
+    print(f"Total videos found: {batch_summary['total_videos_found']}")
+    print(f"Total links found: {batch_summary['total_links_found']}")
+    print(f"Average quality score: {batch_summary['average_quality_score']}/10")
 
-        except requests.RequestException as e:
-            logger.error(f"Error scraping {url}: {str(e)}")
-            return {"error": str(e), "url": url}
+    if api_key:
+        print(f"AI analyses performed: {batch_summary['ai_analysis_performed']}")
+    else:
+        print("AI analysis: DISABLED (no API key)")
 
-    def _extract_title(self, soup: BeautifulSoup) -> str:
-        """Extract page title"""
-        title_tag = soup.find('title')
-        return title_tag.get_text().strip() if title_tag else ""
+    # Display individual results
+    print("\n" + "-"*50)
+    print("INDIVIDUAL RESULTS:")
+    print("-"*50)
 
-    def _extract_metadata(self, soup: BeautifulSoup) -> Dict[str, str]:
-        """Extract metadata from meta tags"""
-        metadata = {}
+    for i, result in enumerate(results["results"], 1):
+        if "error" not in result:
+            print(f"\n{i}. {result['url']}")
+            print(f"   Title: {result.get('title', 'N/A')}")
+            print(f"   Quality Score: {result.get('agent_metadata', {}).get('data_quality_score', 'N/A')}/10")
+            print(f"   Content Richness: {result.get('agent_metadata', {}).get('content_richness', 'N/A')}")
 
-        # Extract meta tags
-        meta_tags = soup.find_all('meta')
-        for tag in meta_tags:
-            name = tag.get('name') or tag.get('property') or tag.get(
-                'http-equiv')
-            content = tag.get('content')
-            if name and content:
-                metadata[name] = content
+            if result.get('agent_metadata', {}).get('ai_analysis_available'):
+                ai_analysis = result.get('ai_analysis', {})
+                if 'content_analysis' in ai_analysis:
+                    print(f"   AI Summary Available: Yes")
+                if 'agent_decisions' in ai_analysis:
+                    priority_score = ai_analysis['agent_decisions'].get('priority_score', 'N/A')
+                    print(f"   AI Priority Score: {priority_score}/10")
 
-        return metadata
-
-    def _extract_text_content(self, soup: BeautifulSoup) -> Dict[str, Any]:
-        """Extract text content organized by structure"""
-        text_content = {
-            "headings": {},
-            "paragraphs": [],
-            "lists": [],
-            "full_text": ""
-        }
-
-        # Extract headings
-        for i in range(1, 7):
-            headings = soup.find_all(f'h{i}')
-            if headings:
-                text_content["headings"][f"h{i}"] = [
-                    h.get_text().strip() for h in headings
-                ]
-
-        # Extract paragraphs
-        paragraphs = soup.find_all('p')
-        text_content["paragraphs"] = [
-            p.get_text().strip() for p in paragraphs if p.get_text().strip()
-        ]
-
-        # Extract lists
-        lists = soup.find_all(['ul', 'ol'])
-        for list_tag in lists:
-            list_items = list_tag.find_all('li')
-            text_content["lists"].append({
-                "type":
-                list_tag.name,
-                "items": [li.get_text().strip() for li in list_items]
-            })
-
-        # Extract full text (clean)
-        for script in soup(["script", "style"]):
-            script.decompose()
-        text_content["full_text"] = soup.get_text()
-
-        # Clean up whitespace
-        text_content["full_text"] = re.sub(r'\s+', ' ',
-                                           text_content["full_text"]).strip()
-
-        return text_content
-
-    def _extract_images(self, soup: BeautifulSoup,
-                        base_url: str) -> List[Dict[str, str]]:
-        """Extract all images from the page"""
-        images = []
-        img_tags = soup.find_all('img')
-
-        for img in img_tags:
-            src = img.get('src')
-            if src:
-                # Convert relative URLs to absolute
-                full_url = urljoin(base_url, src)
-
-                image_data = {
-                    "url": full_url,
-                    "alt": img.get('alt', ''),
-                    "title": img.get('title', ''),
-                    "width": img.get('width', ''),
-                    "height": img.get('height', '')
-                }
-                images.append(image_data)
-
-        return images
-
-    def _extract_videos(self, soup: BeautifulSoup,
-                        base_url: str) -> List[Dict[str, str]]:
-        """Extract all videos from the page"""
-        videos = []
-
-        # Extract video tags
-        video_tags = soup.find_all('video')
-        for video in video_tags:
-            src = video.get('src')
-            if src:
-                videos.append({
-                    "type": "video",
-                    "url": urljoin(base_url, src),
-                    "controls": video.get('controls', ''),
-                    "autoplay": video.get('autoplay', ''),
-                    "poster": video.get('poster', '')
-                })
-
-            # Check for source tags within video
-            sources = video.find_all('source')
-            for source in sources:
-                src = source.get('src')
-                if src:
-                    videos.append({
-                        "type": "video_source",
-                        "url": urljoin(base_url, src),
-                        "type_attr": source.get('type', '')
-                    })
-
-        # Extract iframe videos (YouTube, Vimeo, etc.)
-        iframe_tags = soup.find_all('iframe')
-        for iframe in iframe_tags:
-            src = iframe.get('src', '')
-            if any(platform in src.lower() for platform in
-                   ['youtube', 'vimeo', 'dailymotion', 'twitch']):
-                videos.append({
-                    "type": "embedded_video",
-                    "url": src,
-                    "width": iframe.get('width', ''),
-                    "height": iframe.get('height', '')
-                })
-
-        return videos
-
-    def _extract_links(self, soup: BeautifulSoup,
-                       base_url: str) -> List[Dict[str, str]]:
-        """Extract all links from the page"""
-        links = []
-        link_tags = soup.find_all('a', href=True)
-
-        for link in link_tags:
-            href = link['href']
-            full_url = urljoin(base_url, href)
-
-            link_data = {
-                "url": full_url,
-                "text": link.get_text().strip(),
-                "title": link.get('title', ''),
-                "target": link.get('target', '')
-            }
-            links.append(link_data)
-
-        return links
-
-    def save_to_json(self, data: Dict[str, Any], filename: str = None) -> str:
-        """Save scraped data to JSON file"""
-        if filename is None:
-            # Generate filename from URL
-            parsed_url = urlparse(data.get('url', 'unknown'))
-            domain = parsed_url.netloc.replace('.', '_')
-            filename = f"scraped_{domain}_{int(time.time())}.json"
-
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-
-        logger.info(f"Data saved to {filename}")
-        return filename
-
-
-def main():
-    """Main function to demonstrate the web scraping agent"""
-    # Initialize the agent
-    agent = WebScrapingAgent(delay=1.0)
-
-    # Example usage
-    test_urls = ["https://x.com/home"]
-
-    for url in test_urls:
-        print(f"\nScraping: {url}")
-        print("=" * 50)
-
-        # Scrape the website
-        data = agent.scrape_website(url)
-
-        if "error" not in data:
-            # Print summary
-            print(f"Title: {data['title']}")
-            print(
-                f"Text paragraphs: {len(data['text_content']['paragraphs'])}")
-            print(f"Images found: {len(data['images'])}")
-            print(f"Videos found: {len(data['videos'])}")
-            print(f"Links found: {len(data['links'])}")
-
-            # Save to JSON
-            filename = agent.save_to_json(data)
-            print(f"Saved to: {filename}")
-
-            # Pretty print first few items as example
-            print("\nSample content:")
-            print("-" * 30)
-
-            if data['text_content']['paragraphs']:
-                print(
-                    f"First paragraph: {data['text_content']['paragraphs'][0][:100]}..."
-                )
-
-            if data['images']:
-                print(f"First image: {data['images'][0]['url']}")
-
-            if data['videos']:
-                print(f"First video: {data['videos'][0]['url']}")
-
+            if result.get('saved_to_file'):
+                print(f"   Saved to: {result['saved_to_file']}")
         else:
-            print(f"Error: {data['error']}")
+            print(f"\n{i}. ERROR - {result['url']}: {result['error']}")
 
-        # Respectful delay
-        time.sleep(agent.delay)
+    print("\n" + "="*80)
+    print("Framework execution completed!")
 
+    # Show configuration info
+    config_info = coordinator.get_configuration()
+    print(f"\nAI Features Enabled: {config_info['ai_enabled']}")
+    print("To modify configurations, edit config.py or use environment variables.")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
