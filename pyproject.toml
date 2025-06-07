@@ -1,12 +1,27 @@
 [project]
-name = "python-template"
-version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
+name = "agentic-web-scraper"
+version = "1.0.0"
+description = "AI-Powered Agentic Web Scraping Framework"
+authors = [
+    { name = "Ayush Padhy", email = "ayushpadhy2001@gmail.com" }
+]
+license = "MIT"
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11"
+]
 dependencies = [
     "beautifulsoup4>=4.13.4",
     "lxml>=5.4.0",
     "openai>=1.84.0",
     "requests>=2.32.3",
+    "click>=8.0.0",
+    "pydantic>=2.0.0",
+    "rich>=13.0.0"
 ]
+scripts = { agentic-scraper = "agentic_scraper.cli:main" }

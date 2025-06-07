@@ -32,7 +32,7 @@ wsenv/Scripts
 wsenv/
 
 test.py
-
+example.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
